@@ -1,9 +1,29 @@
 ﻿using SkiaSharp;
+using System.Drawing;
 
 namespace ImageResizerCore.AspNet
 {
     public class ImageProcessHelper
     {
+        public static SKBitmap CropImage(SKBitmap original, PointF cropTopLeft, PointF cropBottomRight)
+        {
+            var cropRect = new SKRectI
+            {
+                Left = (int)cropTopLeft.X,
+                Top = (int)cropTopLeft.Y,
+                Right = (int)cropBottomRight.X,
+                Bottom = (int)cropBottomRight.Y
+            };
+
+            SKBitmap bitmap = new SKBitmap(cropRect.Width, cropRect.Height);
+
+            original.ExtractSubset(bitmap, cropRect);
+
+            original.Dispose();
+
+            return bitmap;
+        }
+
         public static SKBitmap ResizeImage(SKBitmap original, int w, int h, string mode)
         {
             var bitmap = new SKBitmap();
@@ -80,6 +100,10 @@ namespace ImageResizerCore.AspNet
                     default:
                         break;
                 }
+            }
+            else
+            {
+                bitmap = original.Copy();
             }
 
             original.Dispose();

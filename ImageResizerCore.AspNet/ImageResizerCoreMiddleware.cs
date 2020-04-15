@@ -46,7 +46,7 @@ namespace ImageResizerCore.AspNet
 
             SKBitmap sKBitmap = LoadBitmap(fileStream, out SKEncodedOrigin origin);
 
-            SKData sKData = ImageProcess(sKBitmap, queryParams, origin);
+            SKData sKData = ImageProcess(sKBitmap, queryParams);
 
             context.Response.ContentType = queryParams.format == "png" ? "image/png" : "image/jpeg";
 
@@ -137,8 +137,13 @@ namespace ImageResizerCore.AspNet
             }
         }
 
-        private SKData ImageProcess(SKBitmap bitmap, QueryParams queryParams, SKEncodedOrigin origin)
+        private SKData ImageProcess(SKBitmap bitmap, QueryParams queryParams)
         {
+           if (!string.IsNullOrEmpty(queryParams.crop))
+            {
+                bitmap = ImageProcessHelper.CropImage(bitmap, queryParams.CropTopLeft, queryParams.CropBottomRight);
+            }
+
             bitmap = ImageProcessHelper.ResizeImage(bitmap, queryParams.w, queryParams.h, queryParams.mode);
 
             var encodeFormat = queryParams.format == "png" ? SKEncodedImageFormat.Png : SKEncodedImageFormat.Jpeg;
