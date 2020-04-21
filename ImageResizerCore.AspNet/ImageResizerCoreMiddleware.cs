@@ -40,19 +40,20 @@ namespace ImageResizerCore.AspNet
 
             string path = context.Request.Path;
 
-            var imagePath = Path.Combine(_environment.WebRootPath, path.Replace('/', Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar));
+            var imagePath = Path.Combine(_environment.WebRootPath,
+                path.Replace('/', Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar));
 
             FileStream fileStream = File.OpenRead(imagePath);
 
-            SKBitmap sKBitmap = LoadBitmap(fileStream, out SKEncodedOrigin origin);
+            SKBitmap sKBitmap = LoadBitmap(fileStream);
 
             SKData sKData = ImageProcess(sKBitmap, queryParams);
 
             context.Response.ContentType = queryParams.format == "png" ? "image/png" : "image/jpeg";
 
             context.Response.ContentLength = sKData.Size;
-           
-            await context.Response.Body.WriteAsync(sKData.ToArray(), 0, (int)sKData.Size);
+
+            await context.Response.Body.WriteAsync(sKData.ToArray(), 0, (int) sKData.Size);
 
             sKBitmap.Dispose();
             sKData.Dispose();
@@ -112,34 +113,30 @@ namespace ImageResizerCore.AspNet
             return resizeParams;
         }
 
-        private SKBitmap LoadBitmap(Stream stream, out SKEncodedOrigin origin)
+        private SKBitmap LoadBitmap(Stream stream)
         {
-            using ( var sKManagedStream = new SKManagedStream(stream))
+            using var sKManagedStream = new SKManagedStream(stream);
+            using var codec = SKCodec.Create(sKManagedStream);
+
+            var info = codec.Info;
+            var bitmap = new SKBitmap(info.Width, info.Height, SKImageInfo.PlatformColorType,
+                info.IsOpaque ? SKAlphaType.Opaque : SKAlphaType.Premul);
+
+            var result = codec.GetPixels(bitmap.Info, bitmap.GetPixels(out _));
+
+            if (result == SKCodecResult.Success || result == SKCodecResult.IncompleteInput)
             {
-                using (var codec = SKCodec.Create(sKManagedStream))
-                {
-                    origin = codec.EncodedOrigin;
-                    var info = codec.Info;
-                    var bitmap = new SKBitmap(info.Width, info.Height, SKImageInfo.PlatformColorType, info.IsOpaque ? SKAlphaType.Opaque : SKAlphaType.Premul);
-
-                    IntPtr length;
-                    var result = codec.GetPixels(bitmap.Info, bitmap.GetPixels(out length));
-
-                    if (result == SKCodecResult.Success || result == SKCodecResult.IncompleteInput)
-                    {
-                        return bitmap;
-                    }
-                    else
-                    {
-                        throw new ArgumentException("Bitmap was not loaded with provided stream data.");
-                    }
-                }
+                return bitmap;
+            }
+            else
+            {
+                throw new ArgumentException("Bitmap was not loaded with provided stream data.");
             }
         }
 
         private SKData ImageProcess(SKBitmap bitmap, QueryParams queryParams)
         {
-           if (!string.IsNullOrEmpty(queryParams.crop))
+            if (!string.IsNullOrEmpty(queryParams.crop))
             {
                 bitmap = ImageProcessHelper.CropImage(bitmap, queryParams.CropTopLeft, queryParams.CropBottomRight);
             }
@@ -147,9 +144,9 @@ namespace ImageResizerCore.AspNet
             bitmap = ImageProcessHelper.ResizeImage(bitmap, queryParams.w, queryParams.h, queryParams.mode);
 
             var encodeFormat = queryParams.format == "png" ? SKEncodedImageFormat.Png : SKEncodedImageFormat.Jpeg;
-            
+
             var image = SKImage.FromBitmap(bitmap);
-            
+
             return image.Encode(encodeFormat, queryParams.quality);
         }
     }
