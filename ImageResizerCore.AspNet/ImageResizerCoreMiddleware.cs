@@ -43,9 +43,7 @@ namespace ImageResizerCore.AspNet
             var imagePath = Path.Combine(_environment.WebRootPath,
                 path.Replace('/', Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar));
 
-            FileStream fileStream = File.OpenRead(imagePath);
-
-            SKBitmap sKBitmap = LoadBitmap(fileStream);
+            SKBitmap sKBitmap = LoadBitmap(imagePath);
 
             SKData sKData = ImageProcess(sKBitmap, queryParams);
 
@@ -53,7 +51,7 @@ namespace ImageResizerCore.AspNet
 
             context.Response.ContentLength = sKData.Size;
 
-            await context.Response.Body.WriteAsync(sKData.ToArray(), 0, (int) sKData.Size);
+            await context.Response.Body.WriteAsync(sKData.ToArray(), 0, (int)sKData.Size);
 
             sKBitmap.Dispose();
             sKData.Dispose();
@@ -113,24 +111,30 @@ namespace ImageResizerCore.AspNet
             return resizeParams;
         }
 
-        private SKBitmap LoadBitmap(Stream stream)
+        private SKBitmap LoadBitmap(string imagePath)
         {
-            using var sKManagedStream = new SKManagedStream(stream);
-            using var codec = SKCodec.Create(sKManagedStream);
-
-            var info = codec.Info;
-            var bitmap = new SKBitmap(info.Width, info.Height, SKImageInfo.PlatformColorType,
-                info.IsOpaque ? SKAlphaType.Opaque : SKAlphaType.Premul);
-
-            var result = codec.GetPixels(bitmap.Info, bitmap.GetPixels(out _));
-
-            if (result == SKCodecResult.Success || result == SKCodecResult.IncompleteInput)
+            using (FileStream stream = new FileStream(imagePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
-                return bitmap;
-            }
-            else
-            {
-                throw new ArgumentException("Bitmap was not loaded with provided stream data.");
+                using (var sKManagedStream = new SKManagedStream(stream))
+                {
+                    using (var codec = SKCodec.Create(sKManagedStream))
+                    {
+                        var info = codec.Info;
+                        var bitmap = new SKBitmap(info.Width, info.Height, SKImageInfo.PlatformColorType,
+                            info.IsOpaque ? SKAlphaType.Opaque : SKAlphaType.Premul);
+
+                        var result = codec.GetPixels(bitmap.Info, bitmap.GetPixels(out _));
+
+                        if (result == SKCodecResult.Success || result == SKCodecResult.IncompleteInput)
+                        {
+                            return bitmap;
+                        }
+                        else
+                        {
+                            throw new ArgumentException("Bitmap was not loaded with provided stream data.");
+                        }
+                    }
+                }
             }
         }
 
