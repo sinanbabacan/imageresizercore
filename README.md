@@ -1,1 +1,1 @@
-# imageresizercore
+# Image Resizer Core
